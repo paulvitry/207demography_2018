@@ -1,0 +1,199 @@
+#! /usr/bin/python3
+
+import sys
+import fileinput
+from math import *
+import time
+
+def print_usage():
+    print("USAGE\n\t./207demography code [...]\n")
+    print("DESCRIPTION\n\tcode\tcountry code")
+
+def printCountry(data, length):
+    print('Country:', end='')
+    i = 0
+    while (i < length - 1):
+        piece = data[i].split(';')
+        print(' %s,' % (piece[0]), end='')
+        i += 1
+    piece = data[i].split(';')
+    print(' %s' % (piece[0]))
+
+def compute_y_sum(data, length):
+    i = 0
+    y_sum = 0
+
+    while (i < length):
+        y_sum += data[i]
+        i += 1
+    return y_sum
+
+def compute_x_sum():
+    x_sum = 0
+    years = 1960
+
+    while (years < 2018):
+        x_sum += years
+        years += 1
+    return x_sum
+
+def compute_xx_sum():
+    xx_sum = 0
+    years = 1960
+
+    while (years < 2018):
+        xx_sum += years**2
+        years += 1
+    return xx_sum
+
+def compute_xy_sum(data, length):
+    xy_sum = 0
+    year = 1960
+    
+    for i in range(length):
+        xy_sum += year * data[i]
+        year += 1
+    return xy_sum
+
+def computeRootMeanSquareDeviation(data, a, b, length):
+    i = 0
+    year = 1960
+    num = 0
+
+    while i < length:
+        num += ((a * year + b) - data[i]/ 1000000) ** 2
+        year += 1
+        i += 1
+    rmsd = sqrt(num / i)
+    return rmsd
+
+
+def compute_b(data, length):
+    y_sum = compute_y_sum(data, length)
+    x_sum = compute_x_sum()
+    xx_sum = compute_xx_sum()
+    xy_sum = compute_xy_sum(data, length)
+    n = len(data)
+
+    a = (y_sum * xx_sum - x_sum * xy_sum) / (n * xx_sum - x_sum**2)
+    return a / 1000000
+
+
+def compute_a(data, length):
+    y_sum = compute_y_sum(data, length)
+    x_sum = compute_x_sum()
+    xx_sum = compute_xx_sum()
+    xy_sum = compute_xy_sum(data, length)
+    n = len(data)
+
+    b = (n * xy_sum - x_sum * y_sum) / (n * xx_sum - x_sum**2)
+    return b / 1000000
+
+def getGlobalData(data, length):
+    i = 2
+    j = 0
+    tmp = data[j].split(';')
+    globalData = [0.0 for x in range(len(tmp) - 2)]
+    while j < length:
+        tmp = data[j].split(';')
+        while i < len(tmp):
+            globalData[i - 2] += float(tmp[i])
+            i += 1
+        i = 2
+        j += 1
+    return globalData
+
+def computeFit1(data, length):
+    print('Fit1')
+    a = compute_a(data, length)
+    b = compute_b(data, length)
+    print('\tY = %.2f X - %.2f' % (a, abs(b)))
+    rmsd = computeRootMeanSquareDeviation(data, a, b, length)
+    print('\tRoot-mean-square deviation: %.2f' % (rmsd))
+    pop = a * 2050 + b
+    print('\tPopulation in 2050: %.2f' % (pop))
+    return rmsd
+
+def compute_yy_sum(data, length):
+    yy_sum = 0
+
+    for i in range(length):
+        yy_sum += data[i] ** 2
+    return yy_sum
+
+def compute_f2_a(data, length):
+    x_sum = compute_y_sum(data, length)
+    y_sum = compute_x_sum()
+    yy_sum = compute_yy_sum(data, length)
+    xy_sum = compute_xy_sum(data, length)
+    n = len(data)
+
+    a = (y_sum * yy_sum - x_sum * xy_sum) / (n * yy_sum - x_sum**2)
+    return a
+
+def compute_f2_b(data, length):
+    x_sum = compute_y_sum(data, length)
+    y_sum = compute_x_sum()
+    yy_sum = compute_yy_sum(data, length)
+    xy_sum = compute_xy_sum(data, length)
+    n = len(data)
+
+    b = (n * xy_sum - x_sum * y_sum) / (n *yy_sum - x_sum**2)
+    return b
+
+def computeFit2(data, length):
+    print('Fit2')
+    b = compute_f2_a(data, length)
+    a = compute_f2_b(data, length)
+
+    print('\tX = %.2f Y + %.2f' % (a * 1000000, b))
+    rmsd = computeRootMeanSquareDeviation(data, 1/(a*1000000), -b/(a*1000000), length)
+    print('\tRoot-mean-square deviation: %.2f' % (rmsd))
+    
+    Y = (2050 - b) / (a *1000000)
+    print('\tPopulation in 2050: %.2f' % (Y))
+    return rmsd
+
+
+def compute(data):
+    length = len(data)
+    printCountry(data, length)
+    global_data = getGlobalData(data, length)
+    length = len(global_data)
+    rmsd1 = computeFit1(global_data, length)
+    rmsd2 = computeFit2(global_data, length)
+    
+    print("Correlation: %.4f" % (rmsd1 / rmsd2))
+
+
+def demography():
+    file = open("207demography_data.csv", "r")
+    buffer = file.read()
+    tab = buffer.split('\n')
+    i = 1
+    y = 1
+    allData = ["" for x in range(len(sys.argv) - 1)]
+    
+    
+    while (i < len(tab) - 1 and y < len(sys.argv)):
+        data = tab[i].split(';')
+        if data[1] == sys.argv[y]:
+            allData[y - 1] = tab[i]
+            y += 1
+            i = 0
+        if i == len(tab) - 2 and data[1] != sys.argv[y]:
+            exit(84)
+        i += 1
+    compute(allData)
+
+
+def main():
+    if (len(sys.argv) == 1):
+        exit(84)
+    if (len(sys.argv) == 2 and sys.argv[1] == "-h"):
+        print_usage()
+    else:
+        demography()
+
+if __name__ == "__main__":
+    main()  
